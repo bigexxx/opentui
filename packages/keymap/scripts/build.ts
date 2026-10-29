@@ -242,7 +242,6 @@ writeFileSync(
       bugs: packageJson.bugs,
       exports,
       dependencies: processedDependencies,
-      devDependencies: packageJson.devDependencies,
       peerDependencies: processedPeerDependencies,
       peerDependenciesMeta: packageJson.peerDependenciesMeta,
     },
