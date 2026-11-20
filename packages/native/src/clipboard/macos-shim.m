@@ -69,7 +69,10 @@ static int32_t ot_clipboard_macos_read_uri_list(NSPasteboard *pasteboard, uint32
         NSURL *url = [NSURL URLWithString:value];
         if (url == nil || ![url isFileURL]) continue;
         NSString *host = [url host];
-        if ([host length] > 0 && ![host isEqualToString:@"localhost"]) continue;
+        if ([host length] > 0 && [host caseInsensitiveCompare:@"localhost"] != NSOrderedSame) continue;
+        // File-reference URLs identify an inode, not a path that the caller can open.
+        if ([url isFileReferenceURL]) url = [url filePathURL];
+        if (![[url path] isAbsolutePath]) continue;
 
         // Emit encoded URLs, not paths: spaces and newlines must not split a file reference.
         NSString *encoded = [url absoluteString];

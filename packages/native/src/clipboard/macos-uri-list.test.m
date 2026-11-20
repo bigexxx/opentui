@@ -50,10 +50,38 @@ int main(void) {
             OT_CLIPBOARD_MACOS_STATUS_EMPTY);
         [pasteboard releaseGlobally];
 
-        pasteboard = file_pasteboard(@[@"https://example.com/image.jpg", @"not a URL", @"file://other-host/image.jpg"]);
+        pasteboard = file_pasteboard(@[
+            @"https://example.com/image.jpg", @"not a URL", @"file://other-host/image.jpg",
+            @"file:", @"file:relative/path",
+        ]);
         assert(ot_clipboard_macos_read_uri_list(pasteboard, 4096, NULL, NULL, &data) ==
             OT_CLIPBOARD_MACOS_STATUS_EMPTY);
         [pasteboard releaseGlobally];
+
+        pasteboard = file_pasteboard(@[@"file://LOCALHOST/tmp/image.jpg"]);
+        assert(ot_clipboard_macos_read_uri_list(pasteboard, 4096, NULL, NULL, &data) ==
+            OT_CLIPBOARD_MACOS_STATUS_OK);
+        assert([data isEqualToData:[@"file://LOCALHOST/tmp/image.jpg\r\n" dataUsingEncoding:NSUTF8StringEncoding]]);
+        [pasteboard releaseGlobally];
+        data = nil;
+
+        NSURL *file = [[NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES]
+            URLByAppendingPathComponent:[[NSUUID UUID] UUIDString] isDirectory:NO];
+        NSData *contents = [@"copied file" dataUsingEncoding:NSUTF8StringEncoding];
+        assert([contents writeToURL:file atomically:YES]);
+        NSURL *reference = [file fileReferenceURL];
+        assert([reference isFileReferenceURL]);
+        pasteboard = [NSPasteboard pasteboardWithUniqueName];
+        assert([pasteboard writeObjects:@[reference]]);
+        assert(ot_clipboard_macos_read_uri_list(pasteboard, 4096, NULL, NULL, &data) ==
+            OT_CLIPBOARD_MACOS_STATUS_OK);
+        NSString *uri = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+        assert([uri hasSuffix:@"\r\n"]);
+        NSURL *resolved = [NSURL URLWithString:[uri substringToIndex:[uri length] - 2]];
+        assert(![resolved isFileReferenceURL]);
+        assert([[NSData dataWithContentsOfURL:resolved] isEqualToData:contents]);
+        [pasteboard releaseGlobally];
+        assert([[NSFileManager defaultManager] removeItemAtURL:file error:NULL]);
 
         pasteboard = file_pasteboard(@[@"file:///tmp/image.jpg"]);
         assert(ot_clipboard_macos_read_uri_list(pasteboard, 0, NULL, NULL, &data) ==
